@@ -153,6 +153,12 @@ void pn532Read()
 #endif
 		for (uint8_t i = 0; i < u8_UidLength; i++)
 		{
+			// issue #635: pad single hex digit bytes with a leading zero,
+			// otherwise UIDs containing 0x0? bytes are read without their "0"
+			if (pnuid[i] < 0x10)
+			{
+				uid += "0";
+			}
 			uid += String(pnuid[i], HEX);
 			rfidState = cardSwiped;
 		}
@@ -290,6 +296,7 @@ void pinCodeRead()
 #endif
 				rfidState = waitingRfid;
 				processingState = cancelled;
+				pinCode = ""; // security fix: never leak the previous code into the next attempt
 				cooldown = millis() + COOLDOWN_MILIS;
 			}
 			if(wg.getCode() == WIEGAND_ENT) // enter, process pincode
@@ -385,14 +392,22 @@ void rfidProcess()
 	}
 
 	// if the pin code is wrong we deny access
-	// pinCode is equal to uid if we allow pin code only access
-	if(config.pinCodeRequested && pinCode != json["pincode"] && pinCode != uid && json["pincode"] != "")
+	// pinCode is equal to uid only for legitimate "pin code only" mode, where
+	// the entered code itself IS the user id (uid was set from pinCode in
+	// pinCodeRead). Security fix for the issue reported in src/todo: never
+	// accept the raw tag UID as a substitute for the PIN, otherwise typing the
+	// decimal/hex UID of a tag on the keypad opens the door without a PIN.
+	if (config.pinCodeRequested && json["pincode"] != "")
 	{
-		processingState = wrongPincode;
+		bool pinOnlyMode = config.pinCodeOnly && rfidState == cardSwiped && pinCode == uid;
+		if (!pinOnlyMode && pinCode != json["pincode"])
+		{
+			processingState = wrongPincode;
 #ifdef DEBUG
-		Serial.println("Wrong pin code");
+			Serial.println("Wrong pin code");
 #endif
-		return;
+			return;
+		}
 	}
 
 	/*
@@ -421,7 +436,19 @@ void rfidProcess()
 		unsigned long nowL = epoch;
 		int hourTz = timeinfo.tm_hour;
 
-		if (validUntilL < nowL || validSinceL > nowL)
+		/*
+		 *  Issue reported in src/todo: the UI stores only the date part of
+		 *  "valid until" (midnight local time), which made every access fail
+		 *  from 00:00 of the expiration day onwards. Treat "valid until" as
+		 *  inclusive by extending it to the end of that day (UTC midnight of
+		 *  the following day). A zero value means "no expiration".
+		 */
+		if (validUntilL > 0 && validUntilL < (nowL + (24L * 3600L)))
+		{
+			validUntilL += (24L * 3600L);
+		}
+
+		if (validUntilL < nowL || (validSinceL > nowL && validSinceL != 0))
 		{
 			processingState = expired;
 		} else if (config.openingHours[weekdayFromMonday(weekday(epoch))][hourTz] != '1')
@@ -514,7 +541,14 @@ void rfidOutsideMessaging()
 	}
 	if (processingState == wrongPincode)
 	{
+#ifdef DEBUG
+		Serial.println(" wrong pin code");
+#endif
 		writeLatest(uid, username, accountType, ACCESS_DENIED);
+		// issue from src/todo: log only reported wrong tags, not wrong pins.
+		// record the keyboard activity in the event log as well so that
+		// repeated failed PIN attempts are visible/auditable.
+		writeEvent("WARN", "rfid", "Wrong pin code is entered", String(uid) + " " + type);
 		mqttPublishAccess(epoch, "true", "Wrong pin code", username, uid, pinCode);
 		ledAccessDeniedOn();
 		beeperAccessDenied();
@@ -584,6 +618,8 @@ void cleanRfidLoop()
 #endif
 		keyTimer = 0;
 		currentInput = "";
+		pinCode = ""; // security fix: reset the PIN after every attempt so a stale
+		              // code can never bypass validation on the next card swipe
 		type = "";
 		uid = "";
 		v1uid = "";

@@ -14,6 +14,7 @@ struct Config {
     bool dhcpEnabled = true;
     IPAddress dnsIp;
     uint8_t doorbellpin = 255;
+    bool doorbellInverted = false; // issue #665: some doorbell circuits are wired normally-closed
     char *doorName[MAX_NUM_RELAYS];
     uint8_t doorstatpin = 255;
     bool fallbackMode = false;

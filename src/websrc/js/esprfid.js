@@ -47,6 +47,7 @@ var config = {
         "ledwaitingpin" : 255,
         "openlockpin": 255,
         "doorbellpin": 255,
+        "doorbellinverted": 0,
         "accessdeniedpin": 255,
         "useridstoragemode": "hexadecimal",
         "requirepincodeafterrfid": 1,
@@ -206,6 +207,7 @@ function listhardware() {
   document.getElementById("doorstatpin").value = config.hardware.doorstatpin;
   document.getElementById("maxOpenDoorTime").value = config.hardware.maxOpenDoorTime;
   document.getElementById("doorbellpin").value = config.hardware.doorbellpin;
+  document.getElementById("doorbellinverted").checked = config.hardware.doorbellinverted == 1 || config.hardware.doorbellinverted === true;
   document.getElementById("openlockpin").value = config.hardware.openlockpin;
   document.getElementById("accessdeniedpin").value = config.hardware.accessdeniedpin;
   document.getElementById("useridstoragemode").value = config.hardware.useridstoragemode;
@@ -285,6 +287,7 @@ function savehardware() {
   config.hardware.doorstatpin = parseInt(document.getElementById("doorstatpin").value);
   config.hardware.maxOpenDoorTime = parseInt(document.getElementById("maxOpenDoorTime").value);
   config.hardware.doorbellpin = parseInt(document.getElementById("doorbellpin").value);
+  config.hardware.doorbellinverted = document.getElementById("doorbellinverted").checked ? 1 : 0;
   config.hardware.openlockpin = parseInt(document.getElementById("openlockpin").value);
   config.hardware.accessdeniedpin = parseInt(document.getElementById("accessdeniedpin").value);
   config.hardware.beeperpin = parseInt(document.getElementById("beeperpin").value);
@@ -1551,6 +1554,7 @@ function socketMessageListener(evt) {
         if (!('doorstatpin' in config.hardware)) config.hardware.doorstatpin = 255;
         if (!('maxOpenDoorTime' in config.hardware)) config.hardware.maxOpenDoorTime = 0;
         if (!('doorbellpin' in config.hardware)) config.hardware.doorbellpin = 255;
+        if (!('doorbellinverted' in config.hardware)) config.hardware.doorbellinverted = 0;
         if (!('accessdeniedpin' in config.hardware)) config.hardware.accessdeniedpin = 255;
         if (!('openlockpin' in config.hardware)) config.hardware.openlockpin = 255;
         if (!('beeperpin' in config.hardware)) config.hardware.beeperpin = 255;
