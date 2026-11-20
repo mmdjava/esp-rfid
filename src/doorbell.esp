@@ -6,15 +6,23 @@ void doorbellStatus()
       {
             return;
       }
+      // issue #665: support normally-closed (inverted) doorbell wiring via
+      // the "doorbellinverted" config flag. When inverted, the button pull
+      // the pin LOW while pressed, so read the opposite logic level.
+      bool ringState = digitalRead(config.doorbellpin) == HIGH;
+      if (config.doorbellInverted)
+      {
+            ringState = !ringState;
+      }
       // if this changes and if mqtt and mqtt logging enabled, push the message, also to a web socket!
-      if ((digitalRead(config.doorbellpin) == HIGH) && (lastDoorbellState == 0))
+      if (ringState && (lastDoorbellState == 0))
       {
             writeEvent("INFO", "doorbell", "Doorbell ringing", "");
             mqttPublishIo("doorbell", "ON");
             lastDoorbellState = 1;
       }
 
-      if ((digitalRead(config.doorbellpin) == LOW) && (lastDoorbellState == 1))
+      if (!ringState && (lastDoorbellState == 1))
       {
             mqttPublishIo("doorbell", "OFF");
             lastDoorbellState = 0;

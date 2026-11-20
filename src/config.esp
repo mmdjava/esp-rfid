@@ -60,8 +60,14 @@ bool ICACHE_FLASH_ATTR loadConfiguration(Config &config)
 		config.doorbellpin = hardware["doorbellpin"];
 		if (config.doorbellpin != 255)
 		{
-			pinMode(config.doorbellpin, INPUT);
+			pinMode(config.doorbellpin, INPUT_PULLUP);
 		}
+	}
+
+	// issue #665: allow inverted doorbell wiring (normally-closed button)
+	if (hardware.containsKey("doorbellinverted"))
+	{
+		config.doorbellInverted = hardware["doorbellinverted"];
 	}
 
 	if (hardware.containsKey("accessdeniedpin"))
